@@ -1,0 +1,29 @@
+diff --git a/node_modules/@react-native/gradle-plugin/build.gradle.kts b/node_modules/@react-native/gradle-plugin/build.gradle.kts
+--- a/node_modules/@react-native/gradle-plugin/build.gradle.kts
++++ b/node_modules/@react-native/gradle-plugin/build.gradle.kts
+@@ -5,9 +5,7 @@
+  * LICENSE file in the root directory of this source tree.
+  */
+ 
+-import org.gradle.api.internal.classpath.ModuleRegistry
+ import org.gradle.api.tasks.testing.logging.TestExceptionFormat
+-import org.gradle.configurationcache.extensions.serviceOf
+ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+ 
+ plugins {
+@@ -46,14 +44,7 @@ dependencies {
+   implementation(libs.javapoet)
+ 
+   testImplementation(libs.junit)
+-
+-  testRuntimeOnly(
+-      files(
+-          serviceOf<ModuleRegistry>()
+-              .getModule("gradle-tooling-api-builders")
+-              .classpath
+-              .asFiles
+-              .first()))
++  // testRuntimeOnly(serviceOf...) removed for Gradle 8.9+ compatibility
+ }
+ 
+ // We intentionally don't build for Java 17 as users will see a cryptic bytecode version

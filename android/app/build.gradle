@@ -1,0 +1,109 @@
+apply plugin: "com.android.application"
+apply plugin: "org.jetbrains.kotlin.android"
+apply plugin: "com.facebook.react"
+
+// Ensure Gradle can find Node when PATH is not set (e.g. building from Android Studio)
+def resolveNodePath() {
+    if (project.hasProperty("node.path")) {
+        return project.getProperty("node.path")
+    }
+    def nodeBin = System.getenv("NODE_BINARY")
+    if (nodeBin != null && !nodeBin.isEmpty()) {
+        return nodeBin
+    }
+    try {
+        def proc = ["sh", "-c", "command -v node"].execute(null, rootDir)
+        proc.waitFor()
+        if (proc.exitValue() == 0) {
+            def path = proc.text.trim()
+            if (path) return path
+        }
+    } catch (Exception ignored) {}
+    def nodePaths = [
+        "/opt/homebrew/bin/node",
+        "/usr/local/bin/node",
+    ]
+    for (path in nodePaths) {
+        if (new File(path).exists()) {
+            return path
+        }
+    }
+    return "node"
+}
+
+react {
+    nodeExecutableAndArgs = [resolveNodePath()]
+}
+
+def enableProguardInReleaseBuilds = false
+def jscFlavor = 'org.webkit:android-jsc:+'
+
+android {
+    ndkVersion rootProject.ext.ndkVersion
+    buildToolsVersion rootProject.ext.buildToolsVersion
+    compileSdk rootProject.ext.compileSdkVersion
+
+    namespace "com.spendio"
+    
+    defaultConfig {
+        applicationId "com.spendio"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode 3
+        versionName "1.0.2"
+    }
+
+    signingConfigs {
+        debug {
+            def debugKeystore = file('debug.keystore')
+            if (!debugKeystore.exists()) {
+                debugKeystore = file("${System.getProperty('user.home')}/.android/debug.keystore")
+            }
+            storeFile debugKeystore
+            storePassword 'android'
+            keyAlias 'androiddebugkey'
+            keyPassword 'android'
+        }
+    }
+
+    buildTypes {
+        debug {
+            signingConfig signingConfigs.debug
+        }
+        release {
+            signingConfig signingConfigs.debug
+            minifyEnabled enableProguardInReleaseBuilds
+            proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+
+    packaging {
+        resources {
+            excludes += ["META-INF/DEPENDENCIES", "META-INF/LICENSE", "META-INF/LICENSE.txt", "META-INF/NOTICE", "META-INF/NOTICE.txt"]
+        }
+    }
+}
+
+dependencies {
+    implementation("com.facebook.react:react-android")
+    implementation("com.facebook.react:hermes-android")
+
+    // Google Sign-In
+    implementation 'com.google.android.gms:play-services-auth:20.7.0'
+    
+    // Google Drive API
+    implementation 'com.google.api-client:google-api-client-android:2.2.0'
+    implementation 'com.google.apis:google-api-services-drive:v3-rev20231128-2.0.0'
+}
+
+apply from: file("../../node_modules/@react-native-community/cli-platform-android/native_modules.gradle"); applyNativeModulesAppBuildGradle(project)
+apply from: file("../../node_modules/react-native-vector-icons/fonts.gradle")

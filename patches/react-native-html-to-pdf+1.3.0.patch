@@ -1,0 +1,19 @@
+diff --git a/node_modules/react-native-html-to-pdf/android/src/main/java/com/htmltopdf/HtmlToPdfPackage.kt b/node_modules/react-native-html-to-pdf/android/src/main/java/com/htmltopdf/HtmlToPdfPackage.kt
+--- a/node_modules/react-native-html-to-pdf/android/src/main/java/com/htmltopdf/HtmlToPdfPackage.kt
++++ b/node_modules/react-native-html-to-pdf/android/src/main/java/com/htmltopdf/HtmlToPdfPackage.kt
+@@ -1,7 +1,7 @@
+ package com.htmltopdf
+ 
+-import com.facebook.react.BaseReactPackage
++import com.facebook.react.TurboReactPackage
+ import com.facebook.react.bridge.NativeModule
+ import com.facebook.react.bridge.ReactApplicationContext
+ import com.facebook.react.module.model.ReactModuleInfo
+@@ -9,7 +9,7 @@ import com.facebook.react.module.model.ReactModuleInfoProvider
+ import java.util.HashMap
+ 
+-class HtmlToPdfPackage : BaseReactPackage() {
++class HtmlToPdfPackage : TurboReactPackage() {
+   override fun getModule(name: String, reactContext: ReactApplicationContext): NativeModule? {
+     return if (name == HtmlToPdfModule.NAME) {
+       HtmlToPdfModule(reactContext)
