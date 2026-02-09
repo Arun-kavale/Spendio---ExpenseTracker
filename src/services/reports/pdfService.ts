@@ -35,6 +35,10 @@ const SECONDARY_COLOR = '#8B5CF6';
 const INCOME_COLOR = '#10B981';
 const EXPENSE_COLOR = '#EF4444';
 const TRANSFER_COLOR = '#3B82F6';
+// Light header for PDF reports (lighter gradient + dark text)
+const HEADER_GRADIENT_START = '#E9E3F5';
+const HEADER_GRADIENT_END = '#F3EFF9';
+const HEADER_TEXT_COLOR = '#4C1D95';
 
 export interface ReportOptions {
   title: string;
@@ -98,8 +102,8 @@ const getBaseStyles = () => `
       padding: 20px;
     }
     .header {
-      background: linear-gradient(135deg, ${PRIMARY_COLOR}, ${SECONDARY_COLOR});
-      color: white;
+      background: linear-gradient(135deg, ${HEADER_GRADIENT_START}, ${HEADER_GRADIENT_END});
+      color: ${HEADER_TEXT_COLOR};
       padding: 24px;
       border-radius: 12px;
       margin-bottom: 24px;
@@ -183,28 +187,54 @@ const getBaseStyles = () => `
       padding-bottom: 8px;
       border-bottom: 2px solid ${PRIMARY_COLOR};
     }
-    table {
+    .section table {
       width: 100%;
       border-collapse: collapse;
-      margin-bottom: 16px;
+      margin-bottom: 20px;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
     }
-    th {
-      background: #f1f3f5;
-      padding: 10px 12px;
+    .section thead {
+      background: linear-gradient(180deg, ${HEADER_GRADIENT_START}, ${HEADER_GRADIENT_END});
+    }
+    .section thead th {
+      padding: 14px 16px;
       text-align: left;
-      font-weight: 600;
+      font-weight: 700;
       font-size: 11px;
       text-transform: uppercase;
-      color: #495057;
-      border-bottom: 2px solid #dee2e6;
+      letter-spacing: 0.6px;
+      color: ${HEADER_TEXT_COLOR};
+      border-bottom: 2px solid #C4B5FD;
     }
-    td {
-      padding: 10px 12px;
-      border-bottom: 1px solid #e9ecef;
+    .section thead th:first-child {
+      padding-left: 20px;
+    }
+    .section thead th:last-child {
+      padding-right: 20px;
+    }
+    .section tbody td {
+      padding: 12px 16px;
+      border-bottom: 1px solid #f3f4f6;
       font-size: 12px;
+      color: #374151;
     }
-    tr:nth-child(even) {
-      background: #f8f9fa;
+    .section tbody td:first-child {
+      padding-left: 20px;
+    }
+    .section tbody td:last-child {
+      padding-right: 20px;
+    }
+    .section tbody tr:last-child td {
+      border-bottom: none;
+    }
+    .section tbody tr:nth-child(even) td {
+      background: #fafafa;
+    }
+    .section tbody tr:nth-child(odd) td {
+      background: #ffffff;
     }
     .amount {
       font-weight: 600;

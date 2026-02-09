@@ -13,6 +13,7 @@ import {useNavigation} from '@react-navigation/native';
 import {useTheme} from '@/hooks';
 import {Card, AdvancedHeader} from '@/components/common';
 import {SpendioLogo} from '@/assets';
+import {APP_VERSION} from '@/constants';
 
 export const AboutScreen = memo(() => {
   const theme = useTheme();
@@ -43,7 +44,7 @@ export const AboutScreen = memo(() => {
             accessibilityLabel="Spendio logo"
           />
           <Text style={[styles.version, {color: theme.colors.textSecondary}]}>
-            Version 1.0.0
+            Version {APP_VERSION}
           </Text>
         </Animated.View>
         
@@ -119,13 +120,6 @@ export const AboutScreen = memo(() => {
             </Pressable>
           </Card>
         </Animated.View>
-        
-        {/* Footer */}
-        <View style={styles.footer}>
-          <Text style={[styles.footerText, {color: theme.colors.textMuted}]}>
-            Built with React Native
-          </Text>
-        </View>
       </ScrollView>
     </View>
   );
@@ -183,13 +177,6 @@ const styles = StyleSheet.create({
   },
   developerEmail: {
     fontSize: 15,
-  },
-  footer: {
-    alignItems: 'center',
-    paddingVertical: 16,
-  },
-  footerText: {
-    fontSize: 13,
   },
 });
 

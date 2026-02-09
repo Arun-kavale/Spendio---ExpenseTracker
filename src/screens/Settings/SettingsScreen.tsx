@@ -31,6 +31,7 @@ import {backupToGoogleDrive} from '@/services/backup/googleDriveBackup';
 import {exportExpenses, exportFullBackup} from '@/services/backup/exportService';
 import {RootStackParamList, ThemeMode} from '@/types';
 import {formatTimeAgo} from '@/utils';
+import {APP_NAME, APP_VERSION} from '@/constants';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -456,7 +457,7 @@ export const SettingsScreen = memo(() => {
       {/* Footer */}
       <View style={styles.footer}>
         <Text style={[styles.version, {color: theme.colors.textMuted}]}>
-          Spendio v1.0.0
+          {APP_NAME} v{APP_VERSION}
         </Text>
         <Text style={[styles.footerText, {color: theme.colors.textMuted}]}>
           Your complete personal finance companion

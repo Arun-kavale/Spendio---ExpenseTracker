@@ -473,14 +473,24 @@ export const DashboardScreen = memo(() => {
         {/* Spending Trend Chart */}
         <Animated.View entering={FadeInDown.delay(350).duration(400)}>
           <Card style={styles.chartCard} padding="medium" elevation="medium">
-            <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, {color: theme.colors.text}]}>Spending Trend</Text>
+            <View style={styles.chartHeader}>
+              <View style={styles.chartTitleRow}>
+                <Text style={[styles.chartTitle, {color: theme.colors.text}]}>Spending Trend</Text>
+                <View style={[styles.chartBadge, {backgroundColor: theme.colors.primaryLight + '18'}]}>
+                  <Text style={[styles.chartBadgeText, {color: theme.colors.primary}]}>This month</Text>
+                </View>
+              </View>
               <Pressable onPress={() => navigation.navigate('Analytics' as any)} style={styles.sectionAction}>
                 <Text style={[styles.sectionActionText, {color: theme.colors.primary}]}>See Details</Text>
                 <Icon name="chevron-right" size={16} color={theme.colors.primary} />
               </Pressable>
             </View>
-            <LineChart data={currentMonth.dailyExpenses} height={180} showTooltip />
+            <LineChart
+              data={currentMonth.dailyExpenses}
+              height={180}
+              showTooltip
+              gradientColors={[theme.colors.chartGradientStart, theme.colors.chartGradientEnd]}
+            />
           </Card>
         </Animated.View>
         
@@ -549,7 +559,7 @@ export const DashboardScreen = memo(() => {
             
             {recentTransactions.length === 0 ? (
               <View style={styles.emptyRecent}>
-                <Icon name="receipt-text-outline" size={40} color={theme.colors.textMuted} />
+                <Icon name="receipt" size={40} color={theme.colors.textMuted} />
                 <Text style={[styles.emptyText, {color: theme.colors.textMuted}]}>No transactions yet</Text>
               </View>
             ) : (
@@ -716,6 +726,20 @@ const styles = StyleSheet.create({
   overBudgetText: {fontSize: 12, fontWeight: '500'},
   // Charts
   chartCard: {marginBottom: 16},
+  chartHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  chartTitleRow: {flexDirection: 'row', alignItems: 'center', gap: 10},
+  chartTitle: {fontSize: 17, fontWeight: '600'},
+  chartBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  chartBadgeText: {fontSize: 11, fontWeight: '600'},
   sectionHeader: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16},
   sectionTitle: {fontSize: 17, fontWeight: '600'},
   sectionAction: {flexDirection: 'row', alignItems: 'center'},

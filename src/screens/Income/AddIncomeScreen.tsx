@@ -15,6 +15,7 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
+  Keyboard,
   Vibration,
   Modal,
   FlatList,
@@ -63,6 +64,8 @@ export const AddIncomeScreen = memo(() => {
   const [showAccountPicker, setShowAccountPicker] = useState(false);
   const [errors, setErrors] = useState<{amount?: string; category?: string}>({});
   const [isSaving, setIsSaving] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const scrollViewRef = React.useRef<ScrollView>(null);
   
   // Get active accounts for selection
   const activeAccounts = getActiveAccounts();
@@ -92,6 +95,21 @@ export const AddIncomeScreen = memo(() => {
       }
     }
   }, [incomeId, getIncomeById, accounts, getDefaultAccount]);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      e => setKeyboardHeight(e.endCoordinates.height),
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setKeyboardHeight(0),
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const handleAmountChange = useCallback((text: string) => {
     const cleaned = text.replace(/[^0-9.]/g, '');
@@ -150,7 +168,7 @@ export const AddIncomeScreen = memo(() => {
   }, [validateForm, amount, selectedCategory, note, date, paymentMethod, isRecurring, isEditing, incomeId, updateIncome, addIncome, navigation, showToast, formatAmount]);
 
   return (
-    <KeyboardAvoidingView style={[styles.container, {backgroundColor: theme.colors.background}]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={[styles.container, {backgroundColor: theme.colors.background}]} behavior="padding" keyboardVerticalOffset={0}>
       {/* Header */}
       <View style={[styles.header, {paddingTop: insets.top + 8}]}>
         <Pressable onPress={() => navigation.goBack()} hitSlop={8}>
@@ -162,7 +180,12 @@ export const AddIncomeScreen = memo(() => {
         <View style={{width: 24}} />
       </View>
 
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+      <ScrollView
+        ref={scrollViewRef}
+        style={styles.scrollView}
+        contentContainerStyle={[styles.content, {paddingBottom: 24 + insets.bottom}]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}>
         {/* Amount */}
         <Animated.View entering={FadeInDown.delay(100).duration(400)}>
           <Card style={styles.amountCard} padding="large">
@@ -312,26 +335,31 @@ export const AddIncomeScreen = memo(() => {
               multiline
               numberOfLines={3}
               textAlignVertical="top"
+              onFocus={() => {
+                setTimeout(() => {
+                  scrollViewRef.current?.scrollToEnd({animated: true});
+                }, 300);
+              }}
             />
           </Card>
         </Animated.View>
 
         <View style={{height: 24}} />
-      </ScrollView>
 
-      {/* Save Button */}
-      <View style={[styles.footer, {paddingBottom: insets.bottom + 20}]}>
-        <GradientButton
-          title={isEditing ? 'Update Income' : 'Save Income'}
-          onPress={handleSave}
-          loading={isSaving}
-          fullWidth
-          icon="content-save"
-          iconPosition="left"
-          size="large"
-          variant="success"
-        />
-      </View>
+        {/* Save Button - inside ScrollView so it stays above keyboard */}
+        <View style={[styles.footer, {paddingBottom: insets.bottom + 20}]}>
+          <GradientButton
+            title={isEditing ? 'Update Income' : 'Save Income'}
+            onPress={handleSave}
+            loading={isSaving}
+            fullWidth
+            icon="content-save"
+            iconPosition="left"
+            size="large"
+            variant="success"
+          />
+        </View>
+      </ScrollView>
 
       {/* Category Picker Modal */}
       <Modal visible={showCategoryPicker} animationType="slide" transparent>

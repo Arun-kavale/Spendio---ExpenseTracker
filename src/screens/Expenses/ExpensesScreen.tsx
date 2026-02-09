@@ -354,7 +354,7 @@ export const ExpensesScreen = memo(() => {
             </View>
           </View>
           <EmptyState
-            icon="receipt-text-outline"
+            icon="receipt"
             title="No expenses found"
             description={
               searchQuery

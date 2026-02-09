@@ -214,7 +214,7 @@ export const CategoryDetailsScreen = memo(() => {
         }
         ListEmptyComponent={
           <EmptyState
-            icon="receipt-text-outline"
+            icon="receipt"
             title="No expenses yet"
             description="Start tracking by adding your first expense in this category"
           />

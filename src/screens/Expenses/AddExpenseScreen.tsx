@@ -15,7 +15,7 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
-  Alert,
+  Keyboard,
   Vibration,
   Modal,
   FlatList,
@@ -75,6 +75,8 @@ export const AddExpenseScreen = memo(() => {
   const [showAccountPicker, setShowAccountPicker] = useState(false);
   const [errors, setErrors] = useState<{amount?: string; category?: string}>({});
   const [isSaving, setIsSaving] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const scrollViewRef = React.useRef<ScrollView>(null);
   
   // Get active accounts for selection
   const activeAccounts = getActiveAccounts();
@@ -103,6 +105,21 @@ export const AddExpenseScreen = memo(() => {
       }
     }
   }, [expenseId, getExpenseById, categories, accounts, getDefaultAccount]);
+  
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      e => setKeyboardHeight(e.endCoordinates.height),
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setKeyboardHeight(0),
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
   
   const handleAmountChange = useCallback((text: string) => {
     // Only allow numbers and one decimal point
@@ -220,7 +237,8 @@ export const AddExpenseScreen = memo(() => {
   return (
     <KeyboardAvoidingView
       style={[styles.container, {backgroundColor: theme.colors.background}]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      behavior="padding"
+      keyboardVerticalOffset={0}>
       {/* Header */}
       <View style={[styles.header, {paddingTop: insets.top + 8}]}>
         <Pressable onPress={() => navigation.goBack()} hitSlop={8}>
@@ -233,8 +251,12 @@ export const AddExpenseScreen = memo(() => {
       </View>
       
       <ScrollView
+        ref={scrollViewRef}
         style={styles.scrollView}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[
+          styles.content,
+          {paddingBottom: 24 + insets.bottom},
+        ]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}>
         {/* Amount Input */}
@@ -394,25 +416,30 @@ export const AddExpenseScreen = memo(() => {
               multiline
               numberOfLines={3}
               textAlignVertical="top"
+              onFocus={() => {
+                setTimeout(() => {
+                  scrollViewRef.current?.scrollToEnd({animated: true});
+                }, 300);
+              }}
             />
           </Card>
         </Animated.View>
         
         <View style={{height: 24}} />
+        
+        {/* Save Button - inside ScrollView so it stays above keyboard */}
+        <View style={[styles.footer, {paddingBottom: insets.bottom + 20}]}>
+          <GradientButton
+            title={isEditing ? 'Update Expense' : 'Save Expense'}
+            onPress={handleSave}
+            loading={isSaving}
+            fullWidth
+            icon="content-save"
+            iconPosition="left"
+            size="large"
+          />
+        </View>
       </ScrollView>
-      
-      {/* Save Button - Premium Gradient */}
-      <View style={[styles.footer, {paddingBottom: insets.bottom + 20}]}>
-        <GradientButton
-          title={isEditing ? 'Update Expense' : 'Save Expense'}
-          onPress={handleSave}
-          loading={isSaving}
-          fullWidth
-          icon="content-save"
-          iconPosition="left"
-          size="large"
-        />
-      </View>
       
       {/* Category Picker Modal */}
       <CategoryPicker

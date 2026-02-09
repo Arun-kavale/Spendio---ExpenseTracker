@@ -50,9 +50,12 @@ interface LineChartProps {
 }
 
 const {width: SCREEN_WIDTH} = Dimensions.get('window');
-const CHART_PADDING = 16;
-const LABEL_HEIGHT = 28;
-const Y_AXIS_WIDTH = 45;
+const CHART_PADDING = 20;
+const LABEL_HEIGHT = 32;
+const Y_AXIS_WIDTH = 48;
+const GRID_OPACITY = 0.22;
+const AXIS_FONT_SIZE = 11;
+const LABEL_FONT_SIZE = 11;
 
 export const LineChart = memo<LineChartProps>(({
   data,
@@ -195,7 +198,7 @@ export const LineChart = memo<LineChartProps>(({
                 Math.max(selectedData.x - 60, 10),
                 SCREEN_WIDTH - 140
               ),
-              top: Math.max(selectedData.y - 70, 5),
+              top: Math.max(selectedData.y - 72, 6),
             },
           ]}>
           <Text style={[styles.tooltipDate, {color: theme.colors.textSecondary}]}>
@@ -212,8 +215,8 @@ export const LineChart = memo<LineChartProps>(({
         height={chartData.height + (showLabels ? LABEL_HEIGHT : 0) + 20}>
         <Defs>
           <LinearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0" stopColor={colors[0]} stopOpacity="0.35" />
-            <Stop offset="0.5" stopColor={colors[0]} stopOpacity="0.15" />
+            <Stop offset="0" stopColor={colors[0]} stopOpacity="0.28" />
+            <Stop offset="0.4" stopColor={colors[0]} stopOpacity="0.12" />
             <Stop offset="1" stopColor={colors[0]} stopOpacity="0" />
           </LinearGradient>
           <LinearGradient id="lineGradient" x1="0" y1="0" x2="1" y2="0">
@@ -228,36 +231,45 @@ export const LineChart = memo<LineChartProps>(({
           return (
             <G key={`y-${i}`}>
               <SvgText
-                x={2}
+                x={4}
                 y={y + 4}
-                fill={theme.colors.textMuted}
-                fontSize={10}>
+                fill={theme.colors.textSecondary}
+                fontSize={AXIS_FONT_SIZE}
+                fontWeight="500">
                 {formatCompact(value)}
               </SvgText>
             </G>
           );
         })}
         
-        {/* Grid lines */}
+        {/* Grid lines - subtle horizontal only */}
         {showGrid && (
           <G>
-            {[0, 0.25, 0.5, 0.75, 1].map((ratio, i) => (
+            {[0.25, 0.5, 0.75].map((ratio, i) => (
               <Line
                 key={`grid-${i}`}
                 x1={Y_AXIS_WIDTH}
                 y1={10 + ratio * chartData.height}
                 x2={chartData.width}
                 y2={10 + ratio * chartData.height}
-                stroke={theme.colors.border}
+                stroke={theme.colors.textMuted}
                 strokeWidth={1}
-                strokeDasharray={ratio === 1 ? undefined : '4,6'}
-                opacity={ratio === 1 ? 0.5 : 0.3}
+                opacity={GRID_OPACITY}
               />
             ))}
+            <Line
+              x1={Y_AXIS_WIDTH}
+              y1={10 + chartData.height}
+              x2={chartData.width}
+              y2={10 + chartData.height}
+              stroke={theme.colors.border}
+              strokeWidth={1}
+              opacity={0.5}
+            />
           </G>
         )}
         
-        {/* Average line */}
+        {/* Average line - subtle reference */}
         {data.length > 1 && (
           <G>
             <Line
@@ -265,10 +277,10 @@ export const LineChart = memo<LineChartProps>(({
               y1={10 + chartData.height - (average / chartData.maxValue) * chartData.height}
               x2={chartData.width}
               y2={10 + chartData.height - (average / chartData.maxValue) * chartData.height}
-              stroke={theme.colors.warning}
-              strokeWidth={1.5}
-              strokeDasharray="6,4"
-              opacity={0.6}
+              stroke={theme.colors.textMuted}
+              strokeWidth={1}
+              strokeDasharray="5,5"
+              opacity={0.4}
             />
           </G>
         )}
@@ -283,7 +295,7 @@ export const LineChart = memo<LineChartProps>(({
         <Path
           d={chartData.path}
           stroke="url(#lineGradient)"
-          strokeWidth={3}
+          strokeWidth={2.5}
           fill="none"
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -313,10 +325,10 @@ export const LineChart = memo<LineChartProps>(({
             <Circle
               cx={point.x}
               cy={point.y}
-              r={selectedPoint === i ? 6 : 4}
+              r={selectedPoint === i ? 5 : 3.5}
               fill={theme.colors.card}
               stroke={colors[0]}
-              strokeWidth={selectedPoint === i ? 3 : 2}
+              strokeWidth={selectedPoint === i ? 2.5 : 1.5}
             />
           </G>
         ))}
@@ -352,7 +364,14 @@ export const LineChart = memo<LineChartProps>(({
       
       {/* Trend indicator */}
       {data.length > 3 && (
-        <View style={styles.trendContainer}>
+        <View
+          style={[
+            styles.trendContainer,
+            {
+              backgroundColor: theme.colors.surface || theme.colors.card,
+              borderColor: theme.colors.border,
+            },
+          ]}>
           <Icon
             name={trend === 'up' ? 'trending-up' : trend === 'down' ? 'trending-down' : 'minus'}
             size={14}
@@ -397,47 +416,51 @@ const styles = StyleSheet.create({
   },
   label: {
     position: 'absolute',
-    fontSize: 10,
-    width: 40,
+    fontSize: LABEL_FONT_SIZE,
+    width: 44,
     textAlign: 'center',
+    letterSpacing: 0.15,
   },
   tooltip: {
     position: 'absolute',
     zIndex: 100,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
     borderWidth: 1,
     shadowColor: '#000',
-    shadowOffset: {width: 0, height: 4},
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
-    minWidth: 100,
+    shadowOffset: {width: 0, height: 6},
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 6,
+    minWidth: 108,
   },
   tooltipDate: {
     fontSize: 11,
-    marginBottom: 2,
+    marginBottom: 4,
+    letterSpacing: 0.2,
   },
   tooltipValue: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '700',
+    letterSpacing: -0.3,
   },
   trendContainer: {
     position: 'absolute',
-    top: 8,
-    right: 8,
+    top: 6,
+    right: 6,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    backgroundColor: 'rgba(0,0,0,0.03)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
   },
   trendText: {
     fontSize: 11,
     fontWeight: '600',
-    marginLeft: 4,
+    marginLeft: 5,
+    letterSpacing: 0.2,
   },
 });
 

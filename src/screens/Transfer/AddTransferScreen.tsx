@@ -21,6 +21,7 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
+  Keyboard,
   Vibration,
   Modal,
   FlatList,
@@ -84,6 +85,23 @@ export const AddTransferScreen = memo(() => {
   const [showToPicker, setShowToPicker] = useState(false);
   const [errors, setErrors] = useState<{amount?: string; accounts?: string}>({});
   const [isSaving, setIsSaving] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const scrollViewRef = React.useRef<ScrollView>(null);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      e => setKeyboardHeight(e.endCoordinates.height),
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setKeyboardHeight(0),
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   // Load existing transfer if editing
   useEffect(() => {
@@ -445,7 +463,8 @@ export const AddTransferScreen = memo(() => {
   return (
     <KeyboardAvoidingView
       style={[styles.container, {backgroundColor: theme.colors.background}]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      behavior="padding"
+      keyboardVerticalOffset={0}>
       <View style={[styles.header, {paddingTop: insets.top + 8}]}>
         <Pressable onPress={() => navigation.goBack()} hitSlop={8}>
           <Icon name="close" size={24} color={theme.colors.text} />
@@ -457,8 +476,12 @@ export const AddTransferScreen = memo(() => {
       </View>
 
       <ScrollView
+        ref={scrollViewRef}
         style={styles.scrollView}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[
+          styles.content,
+          {paddingBottom: 24 + insets.bottom},
+        ]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}>
         {/* Amount */}
@@ -571,24 +594,30 @@ export const AddTransferScreen = memo(() => {
               multiline
               numberOfLines={2}
               textAlignVertical="top"
+              onFocus={() => {
+                setTimeout(() => {
+                  scrollViewRef.current?.scrollToEnd({animated: true});
+                }, 300);
+              }}
             />
           </Card>
         </Animated.View>
 
         <View style={{height: 24}} />
-      </ScrollView>
 
-      <View style={[styles.footer, {paddingBottom: insets.bottom + 20}]}>
-        <GradientButton
-          title={isEditing ? 'Update Transfer' : 'Complete Transfer'}
-          onPress={handleSave}
-          loading={isSaving}
-          fullWidth
-          icon="swap-horizontal"
-          iconPosition="left"
-          size="large"
-        />
-      </View>
+        {/* Save Button - inside ScrollView so it stays above keyboard */}
+        <View style={[styles.footer, {paddingBottom: insets.bottom + 20}]}>
+          <GradientButton
+            title={isEditing ? 'Update Transfer' : 'Complete Transfer'}
+            onPress={handleSave}
+            loading={isSaving}
+            fullWidth
+            icon="swap-horizontal"
+            iconPosition="left"
+            size="large"
+          />
+        </View>
+      </ScrollView>
 
       {showDatePicker && (
         <DateTimePicker

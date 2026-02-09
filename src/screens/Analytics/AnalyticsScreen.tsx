@@ -509,7 +509,7 @@ export const AnalyticsScreen = memo(() => {
           title="vs Last Month"
           value={formatPercentage(Math.abs(stats.percentageChange))}
           subtitle={stats.trend === 'up' ? 'more spent' : stats.trend === 'down' ? 'less spent' : 'same'}
-          icon="compare-arrows"
+          icon="compare"
           color={theme.colors.info}
           trend={stats.trend}
           delay={300}

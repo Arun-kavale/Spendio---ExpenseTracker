@@ -18,6 +18,7 @@ import {
   Platform,
   Vibration,
   Modal,
+  Dimensions,
 } from 'react-native';
 import {BottomTabBarProps} from '@react-navigation/bottom-tabs';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
@@ -51,6 +52,9 @@ const DESIGN = {
   iconSize: 22,
   labelSize: 10,
 };
+
+const {width: SCREEN_WIDTH} = Dimensions.get('window');
+const BAR_WIDTH = SCREEN_WIDTH - DESIGN.barMargin * 2;
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -243,14 +247,22 @@ export const CustomTabBar = memo<BottomTabBarProps>(({state, navigation}) => {
   const rootNav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [showActions, setShowActions] = useState(false);
   
-  // Dynamic styling
+  // Refined frosted glass: base + tint + gradient shine (no blur lib)
   const barBg = theme.mode === 'dark'
-    ? 'rgba(22, 22, 30, 0.92)'
-    : 'rgba(255, 255, 255, 0.95)';
+    ? 'rgba(24, 24, 32, 0.92)'
+    : 'rgba(252, 252, 255, 0.92)';
   
   const barBorder = theme.mode === 'dark'
-    ? 'rgba(255, 255, 255, 0.06)'
-    : 'rgba(0, 0, 0, 0.04)';
+    ? 'rgba(255, 255, 255, 0.1)'
+    : 'rgba(255, 255, 255, 0.6)';
+  
+  const frostedTint = theme.mode === 'dark'
+    ? 'rgba(0, 0, 0, 0.35)'
+    : 'rgba(255, 255, 255, 0.62)';
+  
+  const topHighlight = theme.mode === 'dark'
+    ? 'rgba(255, 255, 255, 0.14)'
+    : 'rgba(255, 255, 255, 0.85)';
   
   const bottomSpace = Math.max(insets.bottom, 8);
   
@@ -293,15 +305,36 @@ export const CustomTabBar = memo<BottomTabBarProps>(({state, navigation}) => {
               borderColor: barBorder,
               ...Platform.select({
                 ios: {
-                  shadowColor: theme.mode === 'dark' ? '#000' : '#64748B',
-                  shadowOffset: {width: 0, height: 4},
-                  shadowOpacity: theme.mode === 'dark' ? 0.4 : 0.12,
-                  shadowRadius: 16,
+                  shadowColor: theme.mode === 'dark' ? '#000' : '#94a3b8',
+                  shadowOffset: {width: 0, height: 6},
+                  shadowOpacity: theme.mode === 'dark' ? 0.35 : 0.1,
+                  shadowRadius: 20,
                 },
-                android: {elevation: 8},
+                android: {elevation: 10},
               }),
             },
           ]}>
+          {/* Glass layers: tint + gradient shine + top edge */}
+          <View
+            style={[StyleSheet.absoluteFill, styles.glassOverlay]}
+            pointerEvents="none">
+            <View style={[StyleSheet.absoluteFill, {backgroundColor: frostedTint}]} />
+            {/* Gradient: top light reflection + bottom subtle depth */}
+            <Svg width={BAR_WIDTH} height={DESIGN.barHeight} style={StyleSheet.absoluteFill}>
+              <Defs>
+                <LinearGradient id="glassShine" x1="0" y1="0" x2="0" y2="1">
+                  <Stop offset="0" stopColor="#FFF" stopOpacity={theme.mode === 'dark' ? 0.08 : 0.22} />
+                  <Stop offset="0.35" stopColor="#FFF" stopOpacity="0" />
+                  <Stop offset="0.85" stopColor="#FFF" stopOpacity="0" />
+                  <Stop offset="1" stopColor="#000" stopOpacity={theme.mode === 'dark' ? 0.08 : 0.04} />
+                </LinearGradient>
+              </Defs>
+              <Rect x={0} y={0} width={BAR_WIDTH} height={DESIGN.barHeight} rx={DESIGN.barRadius} fill="url(#glassShine)" />
+            </Svg>
+            <View style={[styles.glassHighlight, {backgroundColor: topHighlight}]} />
+            {/* Soft secondary highlight under the edge */}
+            <View style={[styles.glassHighlightSoft, {backgroundColor: theme.mode === 'dark' ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.25)'}]} />
+          </View>
           
           {/* Left section */}
           <View style={styles.section}>
@@ -372,6 +405,29 @@ const styles = StyleSheet.create({
     borderRadius: DESIGN.barRadius,
     borderWidth: 1,
     paddingHorizontal: 4,
+  },
+  glassOverlay: {
+    overflow: 'hidden',
+    borderRadius: DESIGN.barRadius,
+  },
+  glassHighlight: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 1,
+    borderTopLeftRadius: DESIGN.barRadius,
+    borderTopRightRadius: DESIGN.barRadius,
+  },
+  glassHighlightSoft: {
+    position: 'absolute',
+    top: 1,
+    left: 12,
+    right: 12,
+    height: 1,
+    opacity: 0.9,
+    borderTopLeftRadius: DESIGN.barRadius - 4,
+    borderTopRightRadius: DESIGN.barRadius - 4,
   },
   section: {
     flex: 1,
