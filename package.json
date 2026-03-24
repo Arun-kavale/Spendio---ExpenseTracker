@@ -1,6 +1,6 @@
 {
   "name": "Spendio",
-  "version": "1.0.3",
+  "version": "1.0.6",
   "private": true,
   "scripts": {
     "android": "node scripts/run-android.js",

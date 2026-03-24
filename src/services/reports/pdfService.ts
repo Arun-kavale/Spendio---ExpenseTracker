@@ -50,6 +50,9 @@ export interface ReportOptions {
 export interface ExpenseReportData {
   expenses: Expense[];
   categories: Category[];
+  /** Same date range as expenses — shown as credits in bank-style ledger */
+  incomes?: Income[];
+  incomeCategories?: {id: string; name: string; icon: string; color: string}[];
   accounts?: UserAccount[];
 }
 
@@ -84,6 +87,23 @@ const formatCurrency = (amount: number, symbol: string): string => {
 // Helper function to format date
 const formatReportDate = (date: string | Date): string => {
   return format(new Date(date), 'dd MMM yyyy');
+};
+
+const escapeHtml = (s: string): string =>
+  s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+
+type LedgerEntry = {
+  date: string;
+  sortKey: number;
+  kind: 'debit' | 'credit';
+  categoryName: string;
+  categoryColor: string;
+  note: string;
+  amount: number;
 };
 
 // Base HTML styles
@@ -243,6 +263,20 @@ const getBaseStyles = () => `
     .amount.income { color: ${INCOME_COLOR}; }
     .amount.expense { color: ${EXPENSE_COLOR}; }
     .amount.transfer { color: ${TRANSFER_COLOR}; }
+    .ledger-dash {
+      text-align: right;
+      color: #9ca3af;
+      font-weight: 500;
+    }
+    .type-badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
     .category-badge {
       display: inline-block;
       padding: 4px 8px;
@@ -323,11 +357,15 @@ export const generateExpenseReport = async (
   options: ReportOptions,
 ): Promise<string> => {
   const {expenses, categories} = data;
+  const incomesList = data.incomes ?? [];
+  const incomeCategories = data.incomeCategories ?? [];
   const {currency} = options;
 
-  const total = expenses.reduce((sum, e) => sum + e.amount, 0);
+  const totalDebit = expenses.reduce((sum, e) => sum + e.amount, 0);
+  const totalCredit = incomesList.reduce((sum, i) => sum + i.amount, 0);
+  const netMovement = totalCredit - totalDebit;
 
-  // Category summary
+  // Category summary (expense categories only)
   const categoryMap = new Map<string, {name: string; color: string; total: number; count: number}>();
   expenses.forEach(expense => {
     const cat = categories.find(c => c.id === expense.categoryId);
@@ -342,6 +380,37 @@ export const generateExpenseReport = async (
   const categorySummary = Array.from(categoryMap.values())
     .sort((a, b) => b.total - a.total);
 
+  // Bank-style ledger: debits (expenses) + credits (income)
+  const ledger: LedgerEntry[] = [];
+  expenses.forEach(expense => {
+    const cat = categories.find(c => c.id === expense.categoryId);
+    ledger.push({
+      date: expense.date,
+      sortKey: new Date(expense.date).getTime() + expense.createdAt * 1e-9,
+      kind: 'debit',
+      categoryName: cat?.name || 'Expense',
+      categoryColor: cat?.color || '#666',
+      note: expense.note?.trim() ? escapeHtml(expense.note) : '—',
+      amount: expense.amount,
+    });
+  });
+  incomesList.forEach(income => {
+    const cat = incomeCategories.find(c => c.id === income.categoryId);
+    ledger.push({
+      date: income.date,
+      sortKey: new Date(income.date).getTime() + income.createdAt * 1e-9,
+      kind: 'credit',
+      categoryName: cat?.name || 'Income',
+      categoryColor: cat?.color || INCOME_COLOR,
+      note: income.note?.trim() ? escapeHtml(income.note) : '—',
+      amount: income.amount,
+    });
+  });
+  ledger.sort((a, b) => b.sortKey - a.sortKey);
+
+  const netLabel = netMovement >= 0 ? 'Net inflow' : 'Net outflow';
+  const netDisplayClass = netMovement >= 0 ? 'income' : 'expense';
+
   const html = `
     <!DOCTYPE html>
     <html>
@@ -354,57 +423,71 @@ export const generateExpenseReport = async (
 
       <div class="summary-cards">
         <div class="summary-card expense">
-          <h3>Total Expenses</h3>
-          <div class="value expense">${formatCurrency(total, currency.symbol)}</div>
+          <h3>Total debit</h3>
+          <div class="value expense">${formatCurrency(totalDebit, currency.symbol)}</div>
+        </div>
+        <div class="summary-card income">
+          <h3>Total credit</h3>
+          <div class="value income">${formatCurrency(totalCredit, currency.symbol)}</div>
         </div>
         <div class="summary-card">
-          <h3>Transactions</h3>
-          <div class="value">${expenses.length}</div>
-        </div>
-        <div class="summary-card">
-          <h3>Categories</h3>
-          <div class="value">${categorySummary.length}</div>
+          <h3>${netLabel}</h3>
+          <div class="value ${netDisplayClass}">${formatCurrency(Math.abs(netMovement), currency.symbol)}</div>
         </div>
       </div>
 
       <div class="section">
-        <h2>Category Breakdown</h2>
+        <h2>Expense categories</h2>
         <div class="category-summary">
-          ${categorySummary.map(cat => `
+          ${categorySummary.length === 0
+            ? '<p style="color:#868e96;font-size:12px;">No expenses in this period.</p>'
+            : categorySummary.map(cat => `
             <div class="category-item">
               <div class="name" style="color: ${cat.color}">${cat.name}</div>
               <div class="amount expense">${formatCurrency(cat.total, currency.symbol)}</div>
-              <div class="count">${cat.count} transaction${cat.count !== 1 ? 's' : ''} • ${((cat.total / total) * 100).toFixed(1)}%</div>
+              <div class="count">${cat.count} transaction${cat.count !== 1 ? 's' : ''} • ${totalDebit > 0 ? ((cat.total / totalDebit) * 100).toFixed(1) : '0'}%</div>
             </div>
           `).join('')}
         </div>
       </div>
 
       <div class="section">
-        <h2>Transaction Details</h2>
+        <h2>Transaction ledger</h2>
+        <p style="font-size:11px;color:#868e96;margin-bottom:12px;">Debits (money out) and credits (money in), newest first — like a bank statement.</p>
         <table>
           <thead>
             <tr>
               <th>Date</th>
+              <th>Entry</th>
               <th>Category</th>
               <th>Note</th>
-              <th style="text-align: right">Amount</th>
+              <th style="text-align: right">Debit</th>
+              <th style="text-align: right">Credit</th>
             </tr>
           </thead>
           <tbody>
-            ${expenses
-              .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-              .map(expense => {
-                const cat = categories.find(c => c.id === expense.categoryId);
-                return `
+            ${ledger.length === 0
+              ? `<tr><td colspan="6" style="text-align:center;color:#868e96;padding:16px;">No transactions in this period.</td></tr>`
+              : ledger
+                  .map(row => {
+                    const typeLabel = row.kind === 'debit' ? 'Debit' : 'Credit';
+                    const typeBg = row.kind === 'debit' ? `${EXPENSE_COLOR}18` : `${INCOME_COLOR}18`;
+                    const typeColor = row.kind === 'debit' ? EXPENSE_COLOR : INCOME_COLOR;
+                    const debitCell =
+                      row.kind === 'debit'
+                        ? `<td class="amount expense">${formatCurrency(row.amount, currency.symbol)}</td><td class="ledger-dash">—</td>`
+                        : `<td class="ledger-dash">—</td><td class="amount income">${formatCurrency(row.amount, currency.symbol)}</td>`;
+                    return `
                   <tr>
-                    <td>${formatReportDate(expense.date)}</td>
-                    <td><span class="category-badge" style="background: ${cat?.color}20; color: ${cat?.color}">${cat?.name || 'Unknown'}</span></td>
-                    <td>${expense.note || '-'}</td>
-                    <td class="amount expense">${formatCurrency(expense.amount, currency.symbol)}</td>
+                    <td>${formatReportDate(row.date)}</td>
+                    <td><span class="type-badge" style="background: ${typeBg}; color: ${typeColor}">${typeLabel}</span></td>
+                    <td><span class="category-badge" style="background: ${row.categoryColor}20; color: ${row.categoryColor}">${row.categoryName}</span></td>
+                    <td>${row.note}</td>
+                    ${debitCell}
                   </tr>
                 `;
-              }).join('')}
+                  })
+                  .join('')}
           </tbody>
         </table>
       </div>

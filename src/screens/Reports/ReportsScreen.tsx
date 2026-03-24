@@ -167,7 +167,12 @@ export const ReportsScreen = memo(() => {
         switch (type) {
           case 'expense':
             filePath = await generateExpenseReport(
-              {expenses: filteredExpenses, categories},
+              {
+                expenses: filteredExpenses,
+                categories,
+                incomes: filteredIncomes,
+                incomeCategories: INCOME_CATEGORIES,
+              },
               options,
             );
             break;
@@ -285,7 +290,7 @@ export const ReportsScreen = memo(() => {
         <ReportCard
           icon="trending-down"
           title="Expense Report"
-          description="Detailed breakdown of all expenses by category"
+          description="Debit & credit ledger with expenses and income for the period"
           color={theme.colors.expense}
           onPress={() => openReportModal('expense')}
           delay={100}

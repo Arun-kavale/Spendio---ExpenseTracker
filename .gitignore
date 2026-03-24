@@ -105,3 +105,4 @@ coverage/
 # Build outputs
 android/app/build/
 ios/build/
+android/app/release
