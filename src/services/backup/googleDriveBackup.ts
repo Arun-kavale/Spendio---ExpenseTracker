@@ -3,14 +3,23 @@
  * 
  * Handles backup and restore operations using Google Drive App Data folder.
  * This folder is private to the app and not visible to users in their Drive.
+ * Backs up ALL app data: expenses, categories, incomes, budgets, transfers, accounts, and settings.
  */
 
 import {getAccessToken} from '@/services/auth/googleAuth';
-import {BackupData, Expense, Category, AppSettings} from '@/types';
-import {useExpenseStore, useCategoryStore, useSettingsStore} from '@/store';
+import {BackupData} from '@/types';
+import {
+  useExpenseStore,
+  useCategoryStore,
+  useSettingsStore,
+  useIncomeStore,
+  useBudgetStore,
+  useTransferStore,
+  useAccountStore,
+} from '@/store';
 
-const BACKUP_FILE_NAME = 'expense_tracker_backup.json';
-const BACKUP_VERSION = '1.0.0';
+const BACKUP_FILE_NAME = 'spendio_backup.json';
+const BACKUP_VERSION = '2.0.0';
 const DRIVE_API_BASE = 'https://www.googleapis.com/drive/v3';
 const DRIVE_UPLOAD_BASE = 'https://www.googleapis.com/upload/drive/v3';
 
@@ -27,14 +36,44 @@ export interface RestoreResult {
 }
 
 /**
- * Create backup data from current app state
+ * Generate a simple hash of the current data state to detect changes.
+ * Uses record counts and latest updatedAt timestamps for efficiency.
+ */
+export const generateDataHash = (): string => {
+  const expenses = useExpenseStore.getState().expenses;
+  const categories = useCategoryStore.getState().categories;
+  const incomes = useIncomeStore.getState().incomes;
+  const budgets = useBudgetStore.getState().budgets;
+  const transfers = useTransferStore.getState().transfers;
+  const accounts = useAccountStore.getState().accounts;
+
+  const latestTimestamp = (items: {updatedAt: number}[]): number =>
+    items.reduce((max, item) => Math.max(max, item.updatedAt), 0);
+
+  const parts = [
+    `e:${expenses.length}:${latestTimestamp(expenses)}`,
+    `c:${categories.length}:${latestTimestamp(categories)}`,
+    `i:${incomes.length}:${latestTimestamp(incomes)}`,
+    `b:${budgets.length}:${latestTimestamp(budgets)}`,
+    `t:${transfers.length}:${latestTimestamp(transfers)}`,
+    `a:${accounts.length}:${latestTimestamp(accounts)}`,
+  ];
+
+  return parts.join('|');
+};
+
+/**
+ * Create backup data from current app state — includes ALL data modules
  */
 export const createBackupData = (): BackupData => {
   const expenses = useExpenseStore.getState().expenses;
   const categories = useCategoryStore.getState().categories;
+  const incomes = useIncomeStore.getState().incomes;
+  const budgets = useBudgetStore.getState().budgets;
+  const transfers = useTransferStore.getState().transfers;
+  const accounts = useAccountStore.getState().accounts;
   const settings = useSettingsStore.getState().settings;
   
-  // Exclude sensitive user data from backup
   const {googleUserId, googleUserEmail, googleUserName, ...settingsToBackup} = settings;
   
   return {
@@ -42,8 +81,50 @@ export const createBackupData = (): BackupData => {
     lastSync: Date.now(),
     expenses,
     categories,
+    incomes,
+    budgets,
+    transfers,
+    accounts,
     settings: settingsToBackup,
   };
+};
+
+/**
+ * Validate backup data structure to prevent corrupt restores
+ */
+export const validateBackupData = (data: unknown): data is BackupData => {
+  if (typeof data !== 'object' || data === null) {
+    return false;
+  }
+
+  const backup = data as Record<string, unknown>;
+
+  if (typeof backup.version !== 'string' || typeof backup.lastSync !== 'number') {
+    return false;
+  }
+
+  if (!Array.isArray(backup.expenses) || !Array.isArray(backup.categories)) {
+    return false;
+  }
+
+  if (!Array.isArray(backup.incomes)) {
+    (backup as Record<string, unknown>).incomes = [];
+  }
+  if (!Array.isArray(backup.budgets)) {
+    (backup as Record<string, unknown>).budgets = [];
+  }
+  if (!Array.isArray(backup.transfers)) {
+    (backup as Record<string, unknown>).transfers = [];
+  }
+  if (!Array.isArray(backup.accounts)) {
+    (backup as Record<string, unknown>).accounts = [];
+  }
+
+  if (typeof backup.settings !== 'object' || backup.settings === null) {
+    return false;
+  }
+
+  return true;
 };
 
 /**
@@ -86,9 +167,8 @@ export const backupToGoogleDrive = async (): Promise<BackupResult> => {
     }
     
     const backupData = createBackupData();
-    const backupJson = JSON.stringify(backupData, null, 2);
+    const backupJson = JSON.stringify(backupData);
     
-    // Check if backup file already exists
     const existingFileId = await findBackupFile(accessToken);
     
     const boundary = '-------314159265358979323846';
@@ -168,14 +248,13 @@ export const restoreFromGoogleDrive = async (): Promise<RestoreResult> => {
       return {success: false, error: 'Failed to download backup'};
     }
     
-    const backupData: BackupData = await response.json();
+    const rawData = await response.json();
     
-    // Validate backup data structure
-    if (!backupData.version || !backupData.expenses || !backupData.categories) {
-      return {success: false, error: 'Invalid backup file format'};
+    if (!validateBackupData(rawData)) {
+      return {success: false, error: 'Invalid or corrupted backup file'};
     }
     
-    return {success: true, data: backupData};
+    return {success: true, data: rawData as BackupData};
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error occurred';
     return {success: false, error: message};
@@ -183,7 +262,7 @@ export const restoreFromGoogleDrive = async (): Promise<RestoreResult> => {
 };
 
 /**
- * Apply restored backup data to app state
+ * Apply restored backup data to ALL app stores
  */
 export const applyBackupData = (
   data: BackupData,
@@ -191,21 +270,35 @@ export const applyBackupData = (
 ): void => {
   const expenseStore = useExpenseStore.getState();
   const categoryStore = useCategoryStore.getState();
+  const incomeStore = useIncomeStore.getState();
+  const budgetStore = useBudgetStore.getState();
+  const transferStore = useTransferStore.getState();
+  const accountStore = useAccountStore.getState();
   const settingsStore = useSettingsStore.getState();
   
   if (mode === 'replace') {
-    // Replace all local data with backup
     expenseStore.clearAllExpenses();
-    expenseStore.importExpenses(data.expenses);
     categoryStore.resetToDefaults();
-    categoryStore.importCategories(data.categories);
-  } else {
-    // Merge: Add non-existing items
+    incomeStore.clearAllIncomes();
+    budgetStore.clearAllBudgets();
+    transferStore.clearAllTransfers();
+    accountStore.clearAllAccounts();
+
     expenseStore.importExpenses(data.expenses);
     categoryStore.importCategories(data.categories);
+    incomeStore.importIncomes(data.incomes || []);
+    budgetStore.importBudgets(data.budgets || []);
+    transferStore.importTransfers(data.transfers || []);
+    accountStore.importAccounts(data.accounts || []);
+  } else {
+    expenseStore.importExpenses(data.expenses);
+    categoryStore.importCategories(data.categories);
+    incomeStore.importIncomes(data.incomes || []);
+    budgetStore.importBudgets(data.budgets || []);
+    transferStore.importTransfers(data.transfers || []);
+    accountStore.importAccounts(data.accounts || []);
   }
   
-  // Update settings (except user-specific ones)
   if (data.settings) {
     settingsStore.setTheme(data.settings.theme);
     settingsStore.setCurrency(data.settings.currency);
@@ -229,9 +322,7 @@ export const checkForConflict = async (): Promise<{
   const localExpenses = useExpenseStore.getState().expenses;
   const cloudData = restoreResult.data;
   
-  // If local has data and cloud has different data, there's a conflict
   if (localExpenses.length > 0 && cloudData.expenses.length > 0) {
-    // Check if they're actually different
     const localIds = new Set(localExpenses.map(e => e.id));
     const cloudIds = new Set(cloudData.expenses.map(e => e.id));
     
@@ -258,7 +349,7 @@ export const deleteBackupFromGoogleDrive = async (): Promise<boolean> => {
     
     const fileId = await findBackupFile(accessToken);
     if (!fileId) {
-      return true; // No backup to delete
+      return true;
     }
     
     const response = await fetch(`${DRIVE_API_BASE}/files/${fileId}`, {

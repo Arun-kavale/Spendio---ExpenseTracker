@@ -13,6 +13,7 @@ import {
   Pressable,
   Switch,
   Alert,
+  Platform,
 } from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import Animated, {FadeInDown} from 'react-native-reanimated';
@@ -22,13 +23,15 @@ import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {useTheme, useCurrency} from '@/hooks';
 import {useSettingsStore, useExpenseStore, useCategoryStore, useIncomeStore, useBudgetStore, useTransferStore, useAccountStore} from '@/store';
 import {Card} from '@/components/common';
+import {exportExpenses, exportFullBackup} from '@/services/backup/exportService';
+import {
+  performCloudBackup,
+  getCloudProviderLabel,
+} from '@/services/backup/cloudBackupService';
 import {
   signInWithGoogle,
   signOutFromGoogle,
-  isSignedIn,
 } from '@/services/auth/googleAuth';
-import {backupToGoogleDrive} from '@/services/backup/googleDriveBackup';
-import {exportExpenses, exportFullBackup} from '@/services/backup/exportService';
 import {RootStackParamList, ThemeMode} from '@/types';
 import {formatTimeAgo} from '@/utils';
 import {APP_NAME, APP_VERSION} from '@/constants';
@@ -123,17 +126,16 @@ export const SettingsScreen = memo(() => {
     setTheme(nextMode);
   }, [settings.theme, setTheme]);
   
+  const providerLabel = getCloudProviderLabel();
+  const isAndroid = Platform.OS === 'android';
+
   const handleGoogleSignIn = useCallback(async () => {
     setIsSigningIn(true);
     try {
       const result = await signInWithGoogle();
       if (result.success && result.user) {
         const {user} = result;
-        setGoogleUser(
-          user.user.id,
-          user.user.email,
-          user.user.name
-        );
+        setGoogleUser(user.user.id, user.user.email, user.user.name);
       } else if (result.error && result.errorCode !== 'CANCELLED') {
         Alert.alert('Sign In Failed', result.error);
       }
@@ -143,7 +145,7 @@ export const SettingsScreen = memo(() => {
       setIsSigningIn(false);
     }
   }, [setGoogleUser]);
-  
+
   const handleGoogleSignOut = useCallback(async () => {
     Alert.alert(
       'Sign Out',
@@ -161,18 +163,18 @@ export const SettingsScreen = memo(() => {
       ]
     );
   }, [setGoogleUser, setAutoBackup]);
-  
+
   const handleBackupNow = useCallback(async () => {
-    if (!settings.googleUserId) {
-      Alert.alert('Sign In Required', 'Please sign in with Google to backup to Google Drive.');
+    if (isAndroid && !settings.googleUserId) {
+      Alert.alert('Sign In Required', `Please sign in with Google to backup to ${providerLabel}.`);
       return;
     }
     
     setIsBackingUp(true);
     try {
-      const result = await backupToGoogleDrive();
+      const result = await performCloudBackup();
       if (result.success) {
-        Alert.alert('Backup Complete', 'Your data has been backed up to Google Drive.');
+        Alert.alert('Backup Complete', `Your data has been backed up to ${providerLabel}.`);
       } else {
         Alert.alert('Backup Failed', result.error || 'Unknown error');
       }
@@ -181,7 +183,7 @@ export const SettingsScreen = memo(() => {
     } finally {
       setIsBackingUp(false);
     }
-  }, [settings.googleUserId]);
+  }, [settings.googleUserId, isAndroid, providerLabel]);
   
   const handleExportCSV = useCallback(async () => {
     const result = await exportExpenses('csv');
@@ -307,71 +309,81 @@ export const SettingsScreen = memo(() => {
         </Card>
       </Animated.View>
       
-      {/* Account & Backup - Sign in with Google commented out for now */}
-      {/* <Animated.View entering={FadeInDown.delay(150).duration(400)}>
+      {/* Backup & Restore */}
+      <Animated.View entering={FadeInDown.delay(150).duration(400)}>
         <Text style={[styles.sectionTitle, {color: theme.colors.textSecondary}]}>
-          Account & Backup
+          Backup & Restore
         </Text>
         <Card padding="none">
-          {settings.googleUserId ? (
-            <>
-              <SettingItem
-                icon="account-circle"
-                iconColor={theme.colors.success}
-                title={settings.googleUserName || 'Google Account'}
-                subtitle={settings.googleUserEmail || 'Connected'}
-                showArrow={false}
+          {isAndroid && settings.googleUserId ? (
+            <SettingItem
+              icon="account-circle"
+              iconColor={theme.colors.success}
+              title={settings.googleUserName || 'Google Account'}
+              subtitle={settings.googleUserEmail || 'Connected'}
+              showArrow={false}
+            />
+          ) : isAndroid ? null : (
+            <SettingItem
+              icon="apple-icloud"
+              iconColor={theme.colors.info}
+              title="iCloud"
+              subtitle="Backup to your iCloud account"
+              showArrow={false}
+            />
+          )}
+          <SettingItem
+            icon="cloud-upload"
+            title="Backup Now"
+            subtitle={
+              settings.lastBackupTime
+                ? `Last backup: ${formatTimeAgo(settings.lastBackupTime)}`
+                : 'Never backed up'
+            }
+            onPress={handleBackupNow}
+            rightElement={
+              isBackingUp ? (
+                <Text style={{color: theme.colors.textMuted, marginRight: 8}}>
+                  Backing up...
+                </Text>
+              ) : null
+            }
+          />
+          <SettingItem
+            icon="cloud-sync"
+            title="Auto Backup"
+            subtitle="Backup daily when data changes"
+            showArrow={false}
+            rightElement={
+              <Switch
+                value={settings.autoBackupEnabled}
+                onValueChange={setAutoBackup}
+                trackColor={{
+                  false: theme.colors.border,
+                  true: theme.colors.primary,
+                }}
               />
-              <SettingItem
-                icon="cloud-upload"
-                title="Backup Now"
-                subtitle={
-                  settings.lastBackupTime
-                    ? `Last backup: ${formatTimeAgo(settings.lastBackupTime)}`
-                    : 'Never backed up'
-                }
-                onPress={handleBackupNow}
-                rightElement={
-                  isBackingUp ? (
-                    <Text style={{color: theme.colors.textMuted, marginRight: 8}}>
-                      Backing up...
-                    </Text>
-                  ) : null
-                }
-              />
-              <SettingItem
-                icon="cloud-sync"
-                title="Auto Backup"
-                subtitle="Backup when app goes to background"
-                showArrow={false}
-                rightElement={
-                  <Switch
-                    value={settings.autoBackupEnabled}
-                    onValueChange={setAutoBackup}
-                    trackColor={{
-                      false: theme.colors.border,
-                      true: theme.colors.primary,
-                    }}
-                  />
-                }
-              />
-              <SettingItem
-                icon="cloud-download"
-                title="Restore from Backup"
-                onPress={() => navigation.navigate('Backup')}
-              />
-              <SettingItem
-                icon="logout"
-                iconColor={theme.colors.error}
-                title="Sign Out"
-                onPress={handleGoogleSignOut}
-              />
-            </>
-          ) : (
+            }
+          />
+          <SettingItem
+            icon="cloud-download"
+            title="Backup & Restore"
+            subtitle="Manage cloud backups"
+            onPress={() => navigation.navigate('Backup')}
+          />
+          {isAndroid && settings.googleUserId ? (
+            <SettingItem
+              icon="logout"
+              iconColor={theme.colors.error}
+              title="Sign Out"
+              subtitle="Disconnect Google account"
+              onPress={handleGoogleSignOut}
+            />
+          ) : isAndroid ? (
             <SettingItem
               icon="google"
               title="Sign in with Google"
-              subtitle="Enable cloud backup to Google Drive"
+              subtitle={`Enable cloud backup to ${providerLabel}`}
               onPress={handleGoogleSignIn}
               rightElement={
                 isSigningIn ? (
@@ -381,9 +393,9 @@ export const SettingsScreen = memo(() => {
                 ) : null
               }
             />
-          )}
+          ) : null}
         </Card>
-      </Animated.View> */}
+      </Animated.View>
       
       {/* Export */}
       <Animated.View entering={FadeInDown.delay(200).duration(400)}>

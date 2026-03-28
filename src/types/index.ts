@@ -391,7 +391,23 @@ export interface BackupData {
   lastSync: number;
   expenses: Expense[];
   categories: Category[];
+  incomes: Income[];
+  budgets: Budget[];
+  transfers: Transfer[];
+  accounts: UserAccount[];
   settings: Omit<AppSettings, 'googleUserId' | 'googleUserEmail' | 'googleUserName'>;
+}
+
+export interface BackupMetadata {
+  version: string;
+  lastSync: number;
+  expenseCount: number;
+  categoryCount: number;
+  incomeCount: number;
+  budgetCount: number;
+  transferCount: number;
+  accountCount: number;
+  dataHash: string;
 }
 
 export interface SyncConflict {
@@ -400,6 +416,8 @@ export interface SyncConflict {
 }
 
 export type ConflictResolution = 'keep_local' | 'use_cloud' | 'merge';
+
+export type CloudProvider = 'google_drive' | 'icloud';
 
 // ============================================================================
 // Navigation Types

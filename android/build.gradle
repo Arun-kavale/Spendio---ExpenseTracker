@@ -8,6 +8,8 @@ buildscript {
         kotlinVersion = "1.9.22"
         // Path to react-native so native modules (e.g. gesture-handler) don't need to run `node`
         REACT_NATIVE_NODE_MODULES_DIR = file("$rootDir/../node_modules/react-native").absolutePath
+        // Required by react-native-flipper (must match desktop Flipper app major version)
+        FLIPPER_VERSION = "0.273.0"
     }
     repositories {
         google()

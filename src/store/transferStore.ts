@@ -33,6 +33,7 @@ interface TransferState {
 
   // Data management
   clearAllTransfers: () => void;
+  importTransfers: (transfers: Transfer[]) => void;
 }
 
 export const useTransferStore = create<TransferState>((set, get) => ({
@@ -138,5 +139,18 @@ export const useTransferStore = create<TransferState>((set, get) => ({
   clearAllTransfers: () => {
     StorageService.set(STORAGE_KEYS.TRANSFERS, []);
     set({transfers: []});
+  },
+
+  importTransfers: (transfers) => {
+    const existing = get().transfers;
+    const existingIds = new Set(existing.map(t => t.id));
+    const merged = [...existing];
+    for (const transfer of transfers) {
+      if (!existingIds.has(transfer.id)) {
+        merged.push(transfer);
+      }
+    }
+    StorageService.set(STORAGE_KEYS.TRANSFERS, merged);
+    set({transfers: merged});
   },
 }));

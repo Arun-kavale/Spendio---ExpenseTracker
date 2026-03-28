@@ -31,6 +31,7 @@ interface BudgetState {
 
   // Data management
   clearAllBudgets: () => void;
+  importBudgets: (budgets: Budget[]) => void;
 }
 
 export const useBudgetStore = create<BudgetState>((set, get) => ({
@@ -170,5 +171,18 @@ export const useBudgetStore = create<BudgetState>((set, get) => ({
   clearAllBudgets: () => {
     StorageService.set(STORAGE_KEYS.BUDGETS, []);
     set({budgets: []});
+  },
+
+  importBudgets: (budgets) => {
+    const existing = get().budgets;
+    const existingIds = new Set(existing.map(b => b.id));
+    const merged = [...existing];
+    for (const budget of budgets) {
+      if (!existingIds.has(budget.id)) {
+        merged.push(budget);
+      }
+    }
+    StorageService.set(STORAGE_KEYS.BUDGETS, merged);
+    set({budgets: merged});
   },
 }));

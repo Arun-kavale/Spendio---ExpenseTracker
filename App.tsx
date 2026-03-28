@@ -15,8 +15,9 @@ import {RootNavigator} from '@/navigation';
 import {IntroFlow} from '@/screens/Intro';
 import {useTheme} from '@/hooks';
 import {useSettingsStore, useExpenseStore, useCategoryStore, useIncomeStore, useBudgetStore, useTransferStore, useAccountStore} from '@/store';
+import {setupSpendioFlipper} from '@/debug/setupFlipper';
 import {configureGoogleSignIn} from '@/services/auth/googleAuth';
-import {backupToGoogleDrive} from '@/services/backup/googleDriveBackup';
+import {performAutoBackupIfDue} from '@/services/backup/cloudBackupService';
 import {StorageService, STORAGE_KEYS} from '@/services/storage/mmkv';
 import {lightColors, darkColors} from '@/theme';
 import {ToastProvider} from '@/components/common';
@@ -24,8 +25,11 @@ import {ToastProvider} from '@/components/common';
 // Ignore specific warnings in development
 LogBox.ignoreLogs([
   'Non-serializable values were found in the navigation state',
-  'RNGoogleSignin', // Ignore Google Sign-In warnings when not configured
 ]);
+
+if (__DEV__) {
+  setupSpendioFlipper();
+}
 
 // Configure Google Sign-In on app start (optional - for cloud backup)
 try {
@@ -41,19 +45,21 @@ const AppContent: React.FC = () => {
   const theme = useTheme();
   const {settings} = useSettingsStore();
   
-  // Handle auto-backup on app background
+  // Daily auto-backup: triggers on app foreground and background
   useEffect(() => {
     const handleAppStateChange = async (nextAppState: AppStateStatus) => {
-      if (nextAppState === 'background' && settings.autoBackupEnabled && settings.googleUserId) {
-        // Perform auto-backup when app goes to background
+      if (nextAppState === 'active' || nextAppState === 'background') {
         try {
-          await backupToGoogleDrive();
+          await performAutoBackupIfDue();
         } catch {
           // Silently fail for auto-backup
         }
       }
     };
     
+    // Check on mount as well
+    performAutoBackupIfDue().catch(() => {});
+
     const subscription = AppState.addEventListener('change', handleAppStateChange);
     
     return () => {
